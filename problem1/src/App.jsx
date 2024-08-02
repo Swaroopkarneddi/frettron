@@ -4,7 +4,6 @@ import viteLogo from "/vite.svg";
 import "./App.css";
 import FlightPaths from "./FlightPaths";
 
-// Helper classes and functions
 class Point {
   constructor(x, y) {
     this.x = x;
@@ -28,7 +27,7 @@ function lineSegmentIntersection(A, B, C, D) {
   const determinant = a1 * b2 - a2 * b1;
 
   if (determinant === 0) {
-    return null; // Lines are parallel
+    return null;
   } else {
     const x = Math.round((b2 * c1 - b1 * c2) / determinant);
     const y = Math.round((a1 * c2 - a2 * c1) / determinant);
@@ -55,7 +54,6 @@ function isPointOnSegment(A, B, P) {
 }
 
 function suggestNewPoint(C, D, intersection) {
-  // Use a heuristic to place the new point that avoids intersection
   return new Point(
     intersection.x + (D.x - C.x > 0 ? 1 : -1),
     intersection.y + (D.y - C.y > 0 ? 1 : -1)
@@ -85,10 +83,8 @@ function findAndAdjustIntersections(flights) {
         if (intersection) {
           const newPoint = suggestNewPoint(C, D, intersection);
 
-          // Replace the conflicting segment with the simplified path
           path2.splice(j + 1, 1, [newPoint.x, newPoint.y]);
 
-          // Return updated flights immediately to avoid further adjustments
           return flights.map((path, index) =>
             index === flights.indexOf(path2) ? path2 : path
           );
