@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./App.css";
 import FlightPaths from "./FlightPaths";
 
@@ -10,105 +8,105 @@ class Point {
     this.y = y;
   }
 
-  displayPoint() {
-    return `(${this.x}, ${this.y})`;
+  equals(other) {
+    return this.x === other.x && this.y === other.y;
   }
 }
 
-function lineSegmentIntersection(A, B, C, D) {
-  const a1 = B.y - A.y;
-  const b1 = A.x - B.x;
-  const c1 = a1 * A.x + b1 * A.y;
+function orientation(p, q, r) {
+  const val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  if (val === 0) return 0; // Collinear
+  return val > 0 ? 1 : 2; // Clockwise or Counterclockwise
+}
 
-  const a2 = D.y - C.y;
-  const b2 = C.x - D.x;
-  const c2 = a2 * C.x + b2 * C.y;
+function onSegment(p, q, r) {
+  return (
+    q.x <= Math.max(p.x, r.x) &&
+    q.x >= Math.min(p.x, r.x) &&
+    q.y <= Math.max(p.y, r.y) &&
+    q.y >= Math.min(p.y, r.y)
+  );
+}
+
+function doIntersect(p1, q1, p2, q2) {
+  const o1 = orientation(p1, q1, p2);
+  const o2 = orientation(p1, q1, q2);
+  const o3 = orientation(p2, q2, p1);
+  const o4 = orientation(p2, q2, q1);
+
+  if (o1 !== o2 && o3 !== o4) return true;
+
+  if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+  if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+  if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+  if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+
+  return false;
+}
+
+function findIntersection(p1, q1, p2, q2) {
+  const a1 = q1.y - p1.y;
+  const b1 = p1.x - q1.x;
+  const c1 = a1 * p1.x + b1 * p1.y;
+
+  const a2 = q2.y - p2.y;
+  const b2 = p2.x - q2.x;
+  const c2 = a2 * p2.x + b2 * p2.y;
 
   const determinant = a1 * b2 - a2 * b1;
 
   if (determinant === 0) {
-    return null;
-  } else {
-    const x = Math.round((b2 * c1 - b1 * c2) / determinant);
-    const y = Math.round((a1 * c2 - a2 * c1) / determinant);
-    const intersection = new Point(x, y);
-
-    if (
-      isPointOnSegment(A, B, intersection) &&
-      isPointOnSegment(C, D, intersection)
-    ) {
-      return intersection;
-    } else {
-      return null;
-    }
+    throw new Error("The lines are parallel and do not intersect.");
   }
-}
 
-function isPointOnSegment(A, B, P) {
-  const minX = Math.min(A.x, B.x);
-  const maxX = Math.max(A.x, B.x);
-  const minY = Math.min(A.y, B.y);
-  const maxY = Math.max(A.y, B.y);
+  const x = (b2 * c1 - b1 * c2) / determinant;
+  const y = (a1 * c2 - a2 * c1) / determinant;
 
-  return P.x >= minX && P.x <= maxX && P.y >= minY && P.y <= maxY;
-}
-
-function suggestNewPoint(C, D, intersection) {
-  return new Point(
-    intersection.x + (D.x - C.x > 0 ? 1 : -1),
-    intersection.y + (D.y - C.y > 0 ? 1 : -1)
-  );
+  return new Point(x, y);
 }
 
 function findAndAdjustIntersections(flights) {
-  function checkIntersections(path1, path2) {
-    for (let i = 0; i < path1.length - 1; i++) {
-      for (let j = 0; j < path2.length - 1; j++) {
-        const A = new Point(path1[i][0], path1[i][1]);
-        const B = new Point(path1[i + 1][0], path1[i + 1][1]);
-        const C = new Point(path2[j][0], path2[j][1]);
-        const D = new Point(path2[j + 1][0], path2[j + 1][1]);
+  const setsOfPoints = flights.map((flight) =>
+    flight.map((point) => new Point(point[0], point[1]))
+  );
 
-        if (
-          (A.x === 1 && A.y === 1) ||
-          (B.x === 1 && B.y === 1) ||
-          (C.x === 1 && C.y === 1) ||
-          (D.x === 1 && D.y === 1)
-        ) {
-          continue;
+  for (let i = 1; i < setsOfPoints.length; ++i) {
+    const currentSet = setsOfPoints[i];
+
+    for (let j = 0; j < currentSet.length - 1; ++j) {
+      const p1 = currentSet[j];
+      const q1 = currentSet[j + 1];
+
+      for (let k = 0; k < i; ++k) {
+        const previousSet = setsOfPoints[k];
+
+        for (let l = 0; l < previousSet.length - 1; ++l) {
+          const p2 = previousSet[l];
+          const q2 = previousSet[l + 1];
+
+          if (
+            p1.equals(p2) ||
+            p1.equals(q2) ||
+            q1.equals(p2) ||
+            q1.equals(q2)
+          ) {
+            continue;
+          }
+
+          if (doIntersect(p1, q1, p2, q2)) {
+            try {
+              const intersection = findIntersection(p1, q1, p2, q2);
+              currentSet.splice(j + 1, 0, new Point(q2.x + 1, q2.y));
+            } catch (e) {
+              // Handle error silently if needed
+            }
+          }
         }
-
-        const intersection = lineSegmentIntersection(A, B, C, D);
-
-        if (intersection) {
-          const newPoint = suggestNewPoint(C, D, intersection);
-
-          path2.splice(j + 1, 1, [newPoint.x, newPoint.y]);
-
-          return flights.map((path, index) =>
-            index === flights.indexOf(path2) ? path2 : path
-          );
-        }
-      }
-    }
-    return flights;
-  }
-
-  const updatedFlights = [...flights];
-
-  for (let i = 0; i < updatedFlights.length; i++) {
-    for (let j = i + 1; j < updatedFlights.length; j++) {
-      const adjustedPaths = checkIntersections(
-        updatedFlights[i],
-        updatedFlights[j]
-      );
-      if (adjustedPaths !== updatedFlights) {
-        return { updatedPaths: adjustedPaths, intersections: [] };
       }
     }
   }
 
-  return { updatedPaths: updatedFlights, intersections: [] };
+  return setsOfPoints.map((set) => set.map((pt) => [pt.x, pt.y]));
 }
 
 function App() {
@@ -130,19 +128,35 @@ function App() {
     ],
   ]);
 
+  // const [flights, setFlights] = useState([
+  //   [
+  //     [1, 1],
+  //     [2, 2],
+  //     [3, 3],
+  //   ],
+  //   [
+  //     [1, 1],
+  //     [3, 2],
+  //     [2, 4],
+  //   ],
+  //   [
+  //     [1, 1],
+  //     [1, 2],
+  //     [2, 3],
+  //   ],
+  // ]);
+
   const [updatedFlights, setUpdatedFlights] = useState(flights);
-  const [intersections, setIntersections] = useState([]);
 
   useEffect(() => {
-    const { updatedPaths, intersections } = findAndAdjustIntersections(flights);
-    setUpdatedFlights(updatedPaths);
-    setIntersections(intersections);
+    const adjustedFlights = findAndAdjustIntersections(flights);
+    setUpdatedFlights(adjustedFlights);
   }, [flights]);
 
   return (
     <>
       <div>hello</div>
-      <FlightPaths flights={updatedFlights} intersections={intersections} />
+      <FlightPaths flights={updatedFlights} />
     </>
   );
 }
